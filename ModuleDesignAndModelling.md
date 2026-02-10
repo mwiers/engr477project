@@ -18,3 +18,7 @@ text
 ## Desired Outputs
 
 text
+
+## Suggested Architecture
+
+text
