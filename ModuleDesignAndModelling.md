@@ -69,6 +69,8 @@ Possible state measurments: {m_dot,T,p,T0,p0,M,h,s,cp,γ,R} and a composition fl
 
 Each of the following components should be modelled as a separate class, with methods to calculate the state of the working fluid at the exit of the component based on the input state and the design parameters of the component. Each class should be completely modular and reusable (or able to be left out if not needed), allowing for easy extension to include additional components or more complex modelling methods in the future.
 
+Each component receives the fluid state(s), and based on the design parameters and the component's characteristics, calculates the new state(s) of the fluid after passing through that component.
+
 #### Inlet
 
 Will be modelled as an adiabatic diffuser, which slows down the incoming air and increases its pressure. The model should account for the effects of altitude and speed on the ambient conditions, as well as any losses that may occur in the inlet as an isentropic efficiency (eta_diffuser or eta_inlet).
