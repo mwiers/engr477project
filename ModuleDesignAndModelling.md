@@ -35,7 +35,7 @@ The fluid modelling should be able to calculate the properties of the working fl
 
 ### Engine Modelling
 
-Each of the following components should be modelled as a separate class, with methods to calculate the state of the working fluid at the exit of the component based on the input state and the design parameters of the component:
+Each of the following components should be modelled as a separate class, with methods to calculate the state of the working fluid at the exit of the component based on the input state and the design parameters of the component. Each class should be completely modular and reusable (or able to be left out if not needed), allowing for easy extension to include additional components or more complex modelling methods in the future.
 
 #### Inlet
 
@@ -51,19 +51,22 @@ Will be modelled as
 
 #### Compressor
 
-Will be modelled as
+Will be modelled as a (nearly) isentropic compressor, which increases the pressure of the working fluid. The model should account for isentropic efficiency (eta_compressor). Each stage of the compressor can be modelled separately, or the entire compressor can be modelled as a single component with an overall pressure ratio and efficiency.
 
 #### Combustor
 
-Will be modelled as
+Will be modelled as a constant-pressure combustion chamber, which adds energy to the working fluid by burning fuel. The model should account for the fuel:air ratio, combustion efficiency, and the properties of the fuel being used. A pressure ratio across the combustor (P_out/P_in) should also be included to account for pressure losses in the combustor.
 
-One of the recommendations was to utilize NASA CEA as a subroutine for calculating the properties of the working fluid after combustion, which can be complex due to the chemical reactions and changes in composition that occur. This would allow for more accurate modelling of the combustor and its effects on the working fluid, as well as providing a way to easily calculate the properties of the exhaust gases for use in the turbine and nozzle calculations. This could be implemented by creating a wrapper function or class that interfaces with the NASA CEA code, allowing the user to input the necessary parameters (such as fuel type, fuel:air ratio or equivalence ratio, temperature, pressure, etc.) and receive the calculated properties of the working fluid after combustion.
+Other considerations for modelling the combustor include:
 
-Another option is to use a Python CEA wrapper library, such as pyCEA, which provides a Python interface to the NASA CEA code. This would allow for easier integration of CEA calculations into the module without needing to write a custom wrapper function or class. Other Python libraries for thermodynamic calculations, such as Cantera, could also be considered for modelling the combustion process and calculating the properties of the working fluid after combustion.
+- One of the recommendations was to utilize NASA CEA as a subroutine for calculating the properties of the working fluid after combustion, which can be complex due to the chemical reactions and changes in composition that occur. This would allow for more accurate modelling of the combustor and its effects on the working fluid, as well as providing a way to easily calculate the properties of the exhaust gases for use in the turbine and nozzle calculations. This could be implemented by creating a wrapper function or class that interfaces with the NASA CEA code, allowing the user to input the necessary parameters (such as fuel type, fuel:air ratio or equivalence ratio, temperature, pressure, etc.) and receive the calculated properties of the working fluid after combustion.
+- Another option is to use a Python CEA wrapper library, such as pyCEA, which provides a Python interface to the NASA CEA code. This would allow for easier integration of CEA calculations into the module without needing to write a custom wrapper function or class. Other Python libraries for thermodynamic calculations, such as Cantera, could also be considered for modelling the combustion process and calculating the properties of the working fluid after combustion.
 
 #### Turbine
 
-Will be modelled as
+Will be modelled as a (nearly) isentropic turbine, which extracts energy from the working fluid to drive the compressor and fan. The model should account for isentropic efficiency (eta_turbine). Each stage of the turbine can be modelled separately, or the entire turbine can be modelled as a single component with an overall pressure ratio and efficiency.
+
+The turbine work output should be calculated based on the work required to drive the compressor and fan, taking into account their efficiencies. The turbine inlet temperature should be defined as a design parameter, and the turbine outlet temperature should be calculated based on the energy balance of the turbine.
 
 #### Mixer (if applicable)
 
@@ -71,11 +74,13 @@ Will be modelled as
 
 #### Afterburner (if applicable)
 
-Will be modelled as
+Will be modelled as a constant-pressure combustion chamber, similar to the main combustor, but with the ability to add additional fuel to increase the temperature and energy of the working fluid before it enters the nozzle. The model should account for the fuel:air ratio, combustion efficiency, and the properties of the fuel being used. A pressure ratio across the afterburner (P_out/P_in) should also be included to account for pressure losses in the afterburner.
+
+This component is only applicable for engines that have an afterburner, such as military fighter jet engines, and thus should be able to be optionally included in the engine model.
 
 #### Nozzle
 
-Will be modelled as
+Will be modelled as a convergent or convergent-divergent nozzle, which accelerates the working fluid to produce thrust. The model should account for isentropic efficiency (eta_nozzle) and the ambient conditions, as well as any losses that may occur in the nozzle. This should be adaptable to handle both subsonic (unchoked) and supersonic (choked) exhaust velocities, depending on the design of the nozzle and the operating conditions of the engine.
 
 ## Desired Outputs
 
