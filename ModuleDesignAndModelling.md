@@ -31,7 +31,7 @@ All of these details should be saved in a way that allows for easy access and an
 
 ### Fluid Modelling
 
-The fluid modelling should be able to calculate the properties of the working fluid (air, fuel, and their mixture) at various stages of the engine. This includes calculating properties such as temperature, pressure, density, specific heat capacity, and specific heat ratio. The model should account for changes in these properties with temperature and pressure, and should be able to handle both ideal gas behavior and more complex equations of state if necessary. Generally air will be assumed to be an ideal gas, but the module should be flexible enough to allow for more complex modelling if desired. The fluid modelling can be implemented as a separate class or module that can be called by the main engine model to obtain the necessary properties at each stage of the engine.
+The fluid modelling should be able to calculate the properties of the working fluid (air, fuel, and their mixture) at various stages of the engine. This includes calculating properties such as [static and stagnation values for] temperature, pressure, enthalpy, density, specific heat capacity, and specific heat ratio. The model should account for changes in these properties with temperature and pressure, and should be able to handle both ideal gas behavior and more complex equations of state if necessary. Generally air will be assumed to be an ideal gas, but the module should be flexible enough to allow for more complex modelling if desired. The fluid modelling can be implemented as a separate class or module that can be called by the main engine model to obtain the necessary properties at each stage of the engine.
 
 ### Engine Modelling
 
