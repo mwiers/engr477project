@@ -17,7 +17,7 @@ This involves defining the design parameters including, but not limited to:
 - the turbine inlet temperature,
 - the mass flow rate,
 - the fuel:air mass ratio,
-- the altitude and speed of operation (which will affect the ambient conditions),
+- the altitude, ambient temperature/pressure, and speed of operation (which will affect the ambient conditions),
 - the specific heat ratio of the working fluid (which may be a function of temperature and pressure).
 - the efficiency of the various components (compressors, turbines, nozzles, etc.) in terms of either Pressure ratio or Isentropic efficiency.
 - Combustion efficiency, which accounts for the fact that not all of the fuel's energy may be converted into useful work due to incomplete combustion or other losses, as a fraction between 0 and 1 directly applied to the fuel energy input.
@@ -37,9 +37,9 @@ The fluid modelling should be able to calculate the properties of the working fl
 
 Each of the following components should be modelled as a separate class, with methods to calculate the state of the working fluid at the exit of the component based on the input state and the design parameters of the component:
 
-#### Intake
+#### Inlet
 
-Will be modelled as
+Will be modelled as an adiabatic diffuser, which slows down the incoming air and increases its pressure. The model should account for the effects of altitude and speed on the ambient conditions, as well as any losses that may occur in the inlet as an isentropic efficiency (eta_diffuser or eta_inlet).
 
 #### Fan
 
@@ -108,7 +108,7 @@ Currently available architechture is as follows:
   - engine.py (class for modelling the overall engine which calls the various component classes and stores results [class Engine: ...])
   - components/
     - component.py (base class for all components)
-    - intake.py
+    - inlet.py
     - fan.py
     - bypass_duct.py
     - compressor.py
