@@ -98,7 +98,10 @@ Currently available architechture is as follows:
 
 - engr477project/
   - main.py (main script for defining design parameters and running the engine model)
-  - fluid_properties.py (class or module for calculating fluid properties)
+  - fluid_properties.py (class or module for calculating fluid properties [class Fluid: ... & class Air(Fluid): ...])
+  - results_container.py    (class for storing results in a structured way [class Result: ...])
+  - utils.py    (utility functions for common calculations, such as calculating specific heat ratio, specific heat capacity, etc.)
+  - engine.py (class for modelling the overall engine which calls the various component classes and stores results)
   - components/
     - component.py (base class for all components)
     - intake.py
@@ -110,7 +113,6 @@ Currently available architechture is as follows:
     - mixer.py
     - afterburner.py
     - nozzle.py
-  - results_container.py    (class for storing results in a structured way)
-  - excel_writer.py (class or module for writing results to Excel files)
-  - plotter.py  (utilities for plotting or heatmapping results when iterations are performed)
-  - utils.py    (utility functions for common calculations, such as calculating specific heat ratio, specific heat capacity, etc.)
+  - tools/
+    - excel_writer.py (class or module for writing results to Excel files)
+    - plotter.py  (utilities for plotting or heatmapping results when iterations are performed)
