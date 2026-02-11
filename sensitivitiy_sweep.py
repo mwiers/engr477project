@@ -1,5 +1,5 @@
 import numpy as np
-from tools.sensitivity import SensitivityAnalyzer, plot_1d, save_sweep_to_excel
+from tools.sensitivity import SensitivityAnalyzer, plot_1d, plot_2d_contour, save_sweep_to_excel
 from engine import Ambient, TurbofanEngine
 from main import build_f135_engine
 

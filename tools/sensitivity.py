@@ -226,49 +226,6 @@ def plot_1d(
     return fig, ax
 
 
-def plot_2d_heatmap(
-    grid: np.ndarray,
-    x_values: Iterable[float],
-    y_values: Iterable[float],
-    *,
-    title: str | None = None,
-    xlabel: str | None = None,
-    ylabel: str | None = None,
-    cbar_label: str | None = None,
-    savepath: str | None = None,
-):
-    """
-    2D heatmap using imshow with matplotlib defaults.
-    Rows correspond to y_values, columns to x_values.
-    """
-    xs = np.asarray(list(x_values), dtype=float)
-    ys = np.asarray(list(y_values), dtype=float)
-
-    fig, ax = plt.subplots()
-
-    # extent ensures axes show actual parameter values
-    extent = [xs.min(), xs.max(), ys.min(), ys.max()]
-    im = ax.imshow(
-        grid,
-        origin="lower",
-        aspect="auto",
-        extent=extent,
-        interpolation="nearest",
-    )
-    ax.set_xlabel(xlabel or "x")
-    ax.set_ylabel(ylabel or "y")
-    if title:
-        ax.set_title(title)
-
-    cbar = fig.colorbar(im, ax=ax)
-    if cbar_label:
-        cbar.set_label(cbar_label)
-
-    if savepath:
-        fig.savefig(savepath, dpi=200, bbox_inches="tight")
-    return fig, ax
-
-
 def save_sweep_to_excel(
     df: pd.DataFrame,
     filepath: str,
@@ -285,3 +242,43 @@ def save_sweep_to_excel(
             meta_df = pd.DataFrame([{"name": k, "value": v} for k, v in metadata.items()])
             meta_df.to_excel(w, index=False, sheet_name="metadata")
     return filepath
+
+def plot_2d_heatmap(
+    grid: np.ndarray,
+    x_values: Iterable[float],
+    y_values: Iterable[float],
+    *,
+    levels: int = 30,
+    title: str | None = None,
+    xlabel: str | None = None,
+    ylabel: str | None = None,
+    cbar_label: str | None = None,
+    savepath: str | None = None,
+):
+    """
+    Smooth filled contour plot using matplotlib contourf.
+    """
+
+    xs = np.asarray(list(x_values), dtype=float)
+    ys = np.asarray(list(y_values), dtype=float)
+
+    X, Y = np.meshgrid(xs, ys)
+
+    fig, ax = plt.subplots()
+
+    contour = ax.contourf(X, Y, grid, levels=levels)
+
+    ax.set_xlabel(xlabel or "x")
+    ax.set_ylabel(ylabel or "y")
+
+    if title:
+        ax.set_title(title)
+
+    cbar = fig.colorbar(contour, ax=ax)
+    if cbar_label:
+        cbar.set_label(cbar_label)
+
+    if savepath:
+        fig.savefig(savepath, dpi=200, bbox_inches="tight")
+
+    return fig, ax
