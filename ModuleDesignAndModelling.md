@@ -57,6 +57,10 @@ Will be modelled as
 
 Will be modelled as
 
+One of the recommendations was to utilize NASA CEA as a subroutine for calculating the properties of the working fluid after combustion, which can be complex due to the chemical reactions and changes in composition that occur. This would allow for more accurate modelling of the combustor and its effects on the working fluid, as well as providing a way to easily calculate the properties of the exhaust gases for use in the turbine and nozzle calculations. This could be implemented by creating a wrapper function or class that interfaces with the NASA CEA code, allowing the user to input the necessary parameters (such as fuel type, fuel:air ratio or equivalence ratio, temperature, pressure, etc.) and receive the calculated properties of the working fluid after combustion.
+
+Another option is to use a Python CEA wrapper library, such as pyCEA, which provides a Python interface to the NASA CEA code. This would allow for easier integration of CEA calculations into the module without needing to write a custom wrapper function or class. Other Python libraries for thermodynamic calculations, such as Cantera, could also be considered for modelling the combustion process and calculating the properties of the working fluid after combustion.
+
 #### Turbine
 
 Will be modelled as
@@ -97,11 +101,11 @@ The suggested architecture for the module is as follows:
 Currently available architechture is as follows:
 
 - engr477project/
-  - main.py (main script for defining design parameters and running the engine model)
+  - main.py (main script for defining design/operation parameters, solving the engine model, and analyzing results)
   - fluid_properties.py (class or module for calculating fluid properties [class Fluid: ... & class Air(Fluid): ...])
   - results_container.py    (class for storing results in a structured way [class Result: ...])
   - utils.py    (utility functions for common calculations, such as calculating specific heat ratio, specific heat capacity, etc.)
-  - engine.py (class for modelling the overall engine which calls the various component classes and stores results)
+  - engine.py (class for modelling the overall engine which calls the various component classes and stores results [class Engine: ...])
   - components/
     - component.py (base class for all components)
     - intake.py
