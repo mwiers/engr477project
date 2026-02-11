@@ -3,6 +3,9 @@ from __future__ import annotations
 from engine import Ambient, AfterburnDesign, EngineDesign, TurbofanEngine
 from fluid_properties import FluidModel
 
+from tools.state_dump import dump_results_to_excel
+
+
 def build_f135_engine() -> TurbofanEngine:
     # From project spec Table 1 (dry):
     d = EngineDesign(
@@ -66,6 +69,26 @@ def main():
     print(f"Net thrust: {wet.scalars['F_net_N']:.0f} N")
     print(f"Specific thrust: {wet.scalars['ST_Ns_per_kg']:.2f} N·s/kg")
     print(f"TSFC: {wet.scalars['TSFC_kg_per_Ns']:.3e} kg/(N·s)")
+
+
+    # Save DRY run to Excel with design + ambient parameters
+    dump_results_to_excel(
+        dry,
+        "./data/f135_dry_run.xlsx",
+        run_parameters=eng.d,                       # EngineDesign dataclass
+        extra_parameters={"ambient": amb},          # any extra metadata you want
+    )
+    print("Saved: ./data/f135_dry_run.xlsx")
+
+    # Save AFTERBURN run (still generic; afterburn params are just extra metadata)
+    dump_results_to_excel(
+        wet,
+        "./data/f135_ab_run.xlsx",
+        run_parameters=eng.d,
+        extra_parameters={"ambient": amb, "afterburn": ab},
+    )
+    print("Saved: ./data/f135_ab_run.xlsx")
+
 
 if __name__ == "__main__":
     main()
