@@ -1,7 +1,7 @@
 
 # ENGR477 Python Module Design and Modelling Document
 
-This document describes the modelling methods and ideal coding structure and arcutecture of this module.
+This document describes the modelling methods and ideal coding structure and arcutecture of this module, entirely written in Python.
 
 The goal of this module is to enable fast and efficient calulation and iteration of turbojet and turbojet-derived engines (turbofan, turboprop, etc.). This should be written using object-oriented-programming principles, with a focus on modularity and reusability of code. The module should be designed in a way that allows for easy extension to include additional engine components or more complex modelling methods in the future.
 
@@ -26,6 +26,20 @@ The fluid properties should be calculated using a suitable method, such as the i
 
 Then the main script should be able to call the various functions and classes of components to allow the user to "build" the engine and calculate the state of the working fluid at each section in the engine, as well as the overall performance parameters such as thrust, specific fuel consumption, etc.
 All of these details should be saved in a way that allows for easy access and analysis, such as in a structured data format (e.g., dictionaries, data classes, or custom objects).
+
+### Units
+
+Use standard SI units for all calculations and inputs.
+
+- Pressure: Pascals (Pa)
+- Temperature: Kelvin (K)
+- Mass flow rate: kilograms per second (kg/s)
+- Specific heat capacity: Joules per kilogram-Kelvin (J/kg-K)
+- Specific heat ratio: dimensionless
+- Thrust: Newtons (N)
+- Specific fuel consumption: kilograms of fuel per Newton-second (kg/N-s)
+
+Avoid making the calcualtions dependent on any specific units, so that any consistent set of units can be used as long as the inputs are provided in those units. This can be achieved by ensuring that all calculations are based on the fundamental physical relationships and equations, rather than hardcoding any specific unit conversions or assumptions.
 
 ## Model Specifications
 
@@ -151,3 +165,8 @@ Currently available architechture is as follows:
   - tools/
     - excel_writer.py (class or module for writing results to Excel files)
     - plotter.py  (utilities for plotting or heatmapping results when iterations are performed)
+  - solvers/
+    - spool_balance.py (functions for solving the spool balance equations)
+    - nonlinear_solver.py (general functions for solving nonlinear equations)
+    - CEA_wrapper.py (wrapper functions for interfacing with NASA CEA code, if used)
+  
