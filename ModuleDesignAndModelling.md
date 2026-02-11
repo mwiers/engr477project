@@ -29,9 +29,27 @@ All of these details should be saved in a way that allows for easy access and an
 
 ## Model Specifications
 
+### Baseline Assumptions
+
+- Steady-state operation: The engine is assumed to be operating in a steady-state condition, meaning that the properties of the working fluid and the performance parameters of the engine do not change with time.
+- One-dimensional flow: The flow of the working fluid through the engine is assumed to be one-dimensional, meaning that the properties of the working fluid are uniform across any cross-section of the engine and only vary along the flow direction.
+- Quasi-equilibrium: The working fluid is assumed to be in quasi-equilibrium at each stage of the engine, meaning that the properties of the working fluid can be calculated using equilibrium thermodynamics based on the input parameters and the design of the engine components.
+- Losses handled via:
+  - Isentropic efficiency for components such as compressors, turbines, and nozzles.
+  - Pressure ratio across the combustor to account for pressure losses in the combustion process.
+  - Combustion efficiency to account for incomplete combustion and other losses in the combustor.
+
 ### Fluid Modelling
 
 The fluid modelling should be able to calculate the properties of the working fluid (air, fuel, and their mixture) at various stages of the engine. This includes calculating properties such as [static and stagnation values for] temperature, pressure, enthalpy, density, specific heat capacity, and specific heat ratio. The model should account for changes in these properties with temperature and pressure, and should be able to handle both ideal gas behavior and more complex equations of state if necessary. Generally air will be assumed to be an ideal gas, but the module should be flexible enough to allow for more complex modelling if desired. The fluid modelling can be implemented as a separate class or module that can be called by the main engine model to obtain the necessary properties at each stage of the engine.
+
+Specific heat (Cp) and specific heat ratio (gamma) should be calculated as functions of temperature. This can be done using polynomial fits, tabulated data, or other suitable methods. The module should allow for easy extension to include more complex methods for calculating these properties in the future if desired.
+
+#### State Object
+
+The state of the working fluid at each stage of the engine can be stored in a structured way, such as in a custom object or data class (e.g., FluidState) that contains all the relevant properties (temperature, pressure, density, specific heat capacity, specific heat ratio, etc.).
+
+Possible state measurments: {m_dot,T,p,T0,p0,M,h,s,cp,γ,R} and a composition flag (air vs products).
 
 ### Engine Modelling
 
@@ -41,13 +59,20 @@ Each of the following components should be modelled as a separate class, with me
 
 Will be modelled as an adiabatic diffuser, which slows down the incoming air and increases its pressure. The model should account for the effects of altitude and speed on the ambient conditions, as well as any losses that may occur in the inlet as an isentropic efficiency (eta_diffuser or eta_inlet).
 
+- Pressure ratio is applied to stagnation pressures for losses.
+- Due to adiabatic process, the stagnation temperature remains constant across the inlet
+
 #### Fan
 
-Will be modelled as
+Will be modelled as a compressor-like turbomachine acting on both the core and bypass streams (before split), using fan pressure ratio and fan efficiency. The model should account for the mass flow split between the core and bypass streams based on the bypass ratio, as well as any losses that may occur in the fan.
+
+Implementation note: Fan class returns two outlet states: one for the core stream entering LPC duct, one for bypass stream entering bypass duct. This should support 0 bypass ratio (pure turbojet) up to high bypass ratios (turbofan), and the mass flow split should be calculated based on the defined bypass ratio.
 
 #### Bypass Duct (if applicable)
 
-Will be modelled as
+Will be modelled as an adiabatic duct with stagnation pressure loss only.
+
+implementation note: This component only affects the bypass air, which is later recombined in the Mixer class. Therefore, if the model has any nonzero bypass, then it requires a Mixer component as well.
 
 #### Compressor
 
@@ -61,6 +86,7 @@ Other considerations for modelling the combustor include:
 
 - One of the recommendations was to utilize NASA CEA as a subroutine for calculating the properties of the working fluid after combustion, which can be complex due to the chemical reactions and changes in composition that occur. This would allow for more accurate modelling of the combustor and its effects on the working fluid, as well as providing a way to easily calculate the properties of the exhaust gases for use in the turbine and nozzle calculations. This could be implemented by creating a wrapper function or class that interfaces with the NASA CEA code, allowing the user to input the necessary parameters (such as fuel type, fuel:air ratio or equivalence ratio, temperature, pressure, etc.) and receive the calculated properties of the working fluid after combustion.
 - Another option is to use a Python CEA wrapper library, such as pyCEA, which provides a Python interface to the NASA CEA code. This would allow for easier integration of CEA calculations into the module without needing to write a custom wrapper function or class. Other Python libraries for thermodynamic calculations, such as Cantera, could also be considered for modelling the combustion process and calculating the properties of the working fluid after combustion.
+- Combustion products should be stored in results as well.
 
 #### Turbine
 
@@ -70,7 +96,7 @@ The turbine work output should be calculated based on the work required to drive
 
 #### Mixer (if applicable)
 
-Will be modelled as
+Will be modelled as an adiabatic mixing chamber, which combines the core and bypass streams of the engine. The model should account for the mass flow rates and properties of both streams, as well as any losses that may occur in the mixer as an stagnation pressure loss.
 
 #### Afterburner (if applicable)
 
