@@ -37,7 +37,7 @@ The fluid modelling should be able to calculate the properties of the working fl
 
 Each of the following components should be modelled as a separate class, with methods to calculate the state of the working fluid at the exit of the component based on the input state and the design parameters of the component:
 
-#### Inlet
+#### Intake
 
 Will be modelled as
 
@@ -93,3 +93,24 @@ The suggested architecture for the module is as follows:
 - Separate classes for each of the engine components (inlet, fan, bypass duct, compressor, combustor, turbine, mixer, afterburner, nozzle), each with methods to calculate the state of the working fluid at the exit of the component based on the input state and the design parameters of the component.
 - A structured data format (e.g., dictionaries, data classes, or custom objects such as a ResultsContainer class or to have the Engine class store results in a structured way) to store the results of the calculations in an organized manner for easy access and analysis.
 - A set of utility functions or methods for common calculations, such as calculating the specific heat ratio, specific heat capacity, or other thermodynamic properties based on the state of the working fluid.
+
+Currently available architechture is as follows:
+
+- engr477project/
+  - main.py (main script for defining design parameters and running the engine model)
+  - fluid_properties.py (class or module for calculating fluid properties)
+  - components/
+    - component.py (base class for all components)
+    - intake.py
+    - fan.py
+    - bypass_duct.py
+    - compressor.py
+    - combustor.py
+    - turbine.py
+    - mixer.py
+    - afterburner.py
+    - nozzle.py
+  - results_container.py    (class for storing results in a structured way)
+  - excel_writer.py (class or module for writing results to Excel files)
+  - plotter.py  (utilities for plotting or heatmapping results when iterations are performed)
+  - utils.py    (utility functions for common calculations, such as calculating specific heat ratio, specific heat capacity, etc.)
