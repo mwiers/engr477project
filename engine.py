@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import math
+from math import sqrt
 from dataclasses import dataclass
 from typing import Optional
 
 from fluid_properties import FluidModel, FluidState
 from results_container import Results
+from utils import stagnation_pressure, stagnation_temperature
 
-from components.inlet import Inlet
+from components.diffuser import Diffuser
 from components.fan import Fan
 from components.duct import Duct
 from components.compressor import Compressor
@@ -35,7 +36,7 @@ class EngineDesign:
     fuel_LHV: float
 
     # Pressure ratios / losses (total pressure multipliers)
-    inlet_pr: float
+    diffuser_pr: float
     fan_pr: float
     bypass_duct_pr: float
     lpc_pr: float
@@ -57,7 +58,7 @@ class EngineDesign:
     eta_nozzle: float
 
     # Temperatures
-    Tt4: float  # combustor exit
+    TIT: float  # combustor exit
 
     # Nozzle geometry (dry)
     nozzle_throat_d: float = 0.78
@@ -67,7 +68,7 @@ class EngineDesign:
 @dataclass
 class AfterburnDesign:
     enabled: bool
-    Tt7: float
+    TAB: float
     ab_pr: float
     eta_ab: float
     nozzle_eta: float
@@ -79,7 +80,7 @@ class TurbofanEngine:
     """
     Variable-cp turbofan cycle model with explicit stagnation state tracking.
 
-    Station labeling (as requested):
+    Station labeling:
       1 = ambient
       2 = after inlet/diffuser
       3 = after fan (core stream entering LPC + bypass stream entering bypass duct)
@@ -90,7 +91,7 @@ class TurbofanEngine:
       8 = after LPT (powers fan + LPC)
       9 = after bypass duct
       10 = after mixer (mixes 8 and 9)
-      11 = after afterburner (if disabled, 11 is omitted; nozzle can take 10)
+      11 = after afterburner (if disabled, 11 is omitted; nozzle can take 11)
       12 = after nozzle (reported as a state with Pt/Tt from nozzle inlet; static exit in scalars)
     """
 
@@ -99,7 +100,7 @@ class TurbofanEngine:
         self.air = air_model
         self.products = products_model
 
-        self.inlet = Inlet(name="inlet", pr=self.d.inlet_pr)
+        self.diffuser = Diffuser(name="diffuser", pr=self.d.diffuser_pr)
         self.fan = Fan(name="fan", pr=self.d.fan_pr, eta=self.d.eta_fan, bypass_ratio=self.d.bypass_ratio)
 
         self.bypass_duct = Duct(name="bypass_duct", pr=self.d.bypass_duct_pr)
@@ -114,7 +115,7 @@ class TurbofanEngine:
             pr=self.d.burner_pr,
             eta_b=self.d.eta_burner,
             LHV=self.d.fuel_LHV,
-            Tt_out=self.d.Tt4,
+            Tt_out=self.d.TIT,
             products_model=self.products,
         )
 
@@ -140,9 +141,9 @@ class TurbofanEngine:
         # Compute freestream stagnation from static + Mach (cycle uses Pt/Tt).
         # We use gamma(T) at ambient temperature as an approximation for stagnation relation.
         gamma0 = self.air.gamma(ambient.T)
-        Tt0 = ambient.T * (1.0 + (gamma0 - 1.0) / 2.0 * ambient.M**2)
-        Pt0 = ambient.p * (1.0 + (gamma0 - 1.0) / 2.0 * ambient.M**2) ** (gamma0 / (gamma0 - 1.0))
-
+        Tt0 = stagnation_temperature(ambient.T, ambient.M, gamma0)
+        Pt0 = stagnation_pressure(ambient.p, ambient.M, gamma0)
+    
         s1 = FluidState(
             m_dot=self.d.m_dot,
             model=self.air,
@@ -158,7 +159,7 @@ class TurbofanEngine:
         # ---------------------------
         # Station 2: inlet/diffuser
         # ---------------------------
-        s2 = self.inlet.process(s1)
+        s2 = self.diffuser.process(s1)
         res.add_state("2", s2)
 
         # ---------------------------
@@ -203,8 +204,8 @@ class TurbofanEngine:
         # HPC power: from s4_to_hpc -> s5
         W_hpc = power_required(s4_to_hpc, s5)
 
-        W_lp = W_fan + W_lpc
-        W_hp = W_hpc
+        W_lpt = W_fan + W_lpc
+        W_hpt = W_hpc
 
         res.add_scalar("W_fan_W", W_fan)
         res.add_scalar("W_lpc_W", W_lpc)
@@ -213,14 +214,14 @@ class TurbofanEngine:
         # ---------------------------
         # Station 7: HPT exit (powers HPC)
         # ---------------------------
-        s7, w_hpt = self.hpt.process(s6, shaft_power_required=W_hp)
+        s7, w_hpt = self.hpt.process(s6, shaft_power_required=W_hpt)
         res.add_state("7", s7)
         res.add_scalar("w_hpt_Jpkg", w_hpt)
 
         # ---------------------------
         # Station 8: LPT exit (powers fan + LPC)
         # ---------------------------
-        s8, w_lpt = self.lpt.process(s7, shaft_power_required=W_lp)
+        s8, w_lpt = self.lpt.process(s7, shaft_power_required=W_lpt)
         res.add_state("8", s8)
         res.add_scalar("w_lpt_Jpkg", w_lpt)
 
@@ -249,7 +250,7 @@ class TurbofanEngine:
                 pr=afterburn.ab_pr,
                 eta_b=afterburn.eta_ab,
                 LHV=self.d.fuel_LHV,
-                Tt_out=afterburn.Tt7,
+                Tt_out=afterburn.TAB,
                 products_model=self.products,
             )
             s11, f_ab = ab.process(s10)
@@ -277,10 +278,11 @@ class TurbofanEngine:
         res.add_scalar("F_gross_N", noz["F_gross"])
 
         # Ram drag from freestream velocity
-        a0 = math.sqrt(gamma0 * self.air.R * ambient.T)
+        a0 = sqrt(gamma0 * self.air.R * ambient.T)
         V0 = ambient.M * a0
         F_net = noz["F_gross"] - self.d.m_dot * V0
         res.add_scalar("F_net_N", F_net)
+        res.add_scalar("V_freestream_mps", V0)
 
         # Fuel flow and TSFC (using station definitions)
         m_core = self.d.m_dot / (1.0 + self.d.bypass_ratio)
@@ -290,7 +292,7 @@ class TurbofanEngine:
 
         res.add_scalar("m_fuel_kgps", m_f)
         res.add_scalar("TSFC_kg_per_Ns", m_f / max(F_net, 1e-12))
-        res.add_scalar("ST_Ns_per_kg", F_net / max(self.d.m_dot, 1e-12))
+        res.add_scalar("ST_Ns_per_kg", F_net / max(m_core, 1e-12))
 
         # ---------------------------
         # Station 12: after nozzle (cycle reporting)

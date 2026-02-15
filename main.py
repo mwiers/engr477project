@@ -11,7 +11,7 @@ def build_f135_engine() -> TurbofanEngine:
         m_dot=150.0,
         bypass_ratio=0.57,
         fuel_LHV=43_150_000.0,
-        inlet_pr=0.99,
+        diffuser_pr=0.99,
         fan_pr=1.75,
         bypass_duct_pr=0.96,
         lpc_pr=1.25,
@@ -29,7 +29,7 @@ def build_f135_engine() -> TurbofanEngine:
         eta_lpt=0.91,
         eta_mech=0.99,
         eta_nozzle=0.98,
-        Tt4=2000.0,
+        TIT=2000.0,
         nozzle_throat_d=0.78,
         nozzle_exit_d=0.78,
     )
@@ -59,7 +59,7 @@ def main():
 
     ab = AfterburnDesign(
         enabled=True,
-        Tt7=2450.0,
+        TAB=2450.0,
         ab_pr=0.95,
         eta_ab=0.99,
         nozzle_eta=0.97,
