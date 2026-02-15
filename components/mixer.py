@@ -26,6 +26,9 @@ class Mixer(Component):
     mixed_model: FluidModel
 
     def process(self, core: FluidState, bypass: FluidState) -> FluidState:
+        """
+        Mix the core and bypass streams, returning the mixed outlet state.
+        """
         m = core.m_dot + bypass.m_dot
         if m <= 0:
             raise ValueError("Mixer requires positive total mass flow.")

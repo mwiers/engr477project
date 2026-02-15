@@ -16,12 +16,15 @@ class Duct(Component):
     - Stagnation pressure reduced by PR: Pt_out = PR * Pt_in.
 
     Entropy increases due to pressure loss:
-      Δs = -R ln(Pt_out/Pt_in) > 0 (for constant cp ideal-gas intuition),
+        Δs = -R ln(Pt_out/Pt_in) > 0 (for constant cp ideal-gas intuition),
     and in variable-cp form is captured via s(Tt,Pt).
     """
     pr: float  # Pt_out / Pt_in
 
     def process(self, inlet: FluidState) -> FluidState:
+        """
+        Computes and returns the duct outlet state given the inlet state.
+        """
         out = inlet.copy_with()
         out.Pt = inlet.Pt * self.pr
         out.Tt = inlet.Tt

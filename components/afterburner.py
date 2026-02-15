@@ -23,6 +23,9 @@ class Afterburner(Component):
     products_model: FluidModel
 
     def process(self, inlet: FluidState) -> tuple[FluidState, float]:
+        """
+        Process the flow through the afterburner, returning the outlet state and afterburner fuel-air ratio.
+        """
         Pt_out = inlet.Pt * self.pr
 
         h_in = inlet.model.h(inlet.Tt)

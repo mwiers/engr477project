@@ -21,6 +21,9 @@ class Diffuser(Component):
     pr: float = 0.99  # Pt_out / Pt_in
 
     def process(self, inlet: FluidState) -> FluidState:
+        """
+        Process inlet flow through the diffuser, returning outlet state.
+        """
         out = inlet.copy_with()
         out.Pt = inlet.Pt * self.pr
         out.Tt = inlet.Tt

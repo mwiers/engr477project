@@ -49,6 +49,10 @@ class Turbine(Component):
     mech_eta: float = 0.99
 
     def process(self, inlet: FluidState, shaft_power_required: float) -> tuple[FluidState, float]:
+        """
+        Process the flow through the turbine, extracting the required shaft power.
+        Returns the outlet state and the actual specific work extracted from the gas.
+        """
         if shaft_power_required < 0:
             raise ValueError("shaft_power_required must be >= 0")
         if inlet.m_dot <= 0:

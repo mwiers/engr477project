@@ -25,6 +25,9 @@ class Fan(Component):
     bypass_ratio: float
 
     def process(self, inlet: FluidState) -> tuple[FluidState, FluidState]:
+        """
+        Process flow through the fan, returning (core_out, bypass_out).
+        """
         Pt_in, Tt_in = inlet.Pt, inlet.Tt
         Pt_out = Pt_in * self.pr
 

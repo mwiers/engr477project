@@ -45,6 +45,9 @@ class Combustor(Component):
     products_model: FluidModel
 
     def process(self, inlet: FluidState) -> tuple[FluidState, float]:
+        """
+        Process inlet flow through the combustor, returning outlet state and fuel-air ratio.
+        """
         Pt_out = inlet.Pt * self.pr
 
         # Inlet enthalpy (air model), outlet enthalpy (products model at target Tt_out)

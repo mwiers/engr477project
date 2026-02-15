@@ -29,6 +29,9 @@ class Compressor(Component):
     eta: float
 
     def process(self, inlet: FluidState) -> FluidState:
+        """
+        Computes and returns the compressor outlet state given the inlet state.
+        """
         Pt_in, Tt_in = inlet.Pt, inlet.Tt
         Pt_out = Pt_in * self.pr
 

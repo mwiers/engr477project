@@ -36,6 +36,9 @@ class Nozzle(Component):
     exit_d: float
 
     def process(self, inlet: FluidState, p_ambient: float) -> dict:
+        """
+        Process the flow through the nozzle, returning a dictionary of relevant output properties.
+        """
         Pt = inlet.Pt * self.pr
         Tt = inlet.Tt
 
