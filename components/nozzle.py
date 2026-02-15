@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+
 from .component import Component
 from fluid_properties import FluidState
 from utils import (
@@ -12,42 +13,59 @@ from utils import (
     static_temperature_from_Tt,
 )
 
+
 @dataclass
 class Nozzle(Component):
+    """
+    Converging or converging-diverging nozzle (cycle deck style).
+
+    Inputs:
+    - eta: nozzle kinetic-energy efficiency (V^2 = eta * V_is^2)
+    - pr: total-pressure loss before nozzle expansion (Pt_noz = pr * Pt_in)
+    - throat_d, exit_d: geometric constraints used to infer exit Mach if choked
+
+    Assumptions:
+    - Quasi-1D isentropic relations used for Pt/Tt -> p/T at a given Mach, with gamma(Tt) evaluated at inlet.
+    - If choked, solve exit Mach from A_e/A_t (A_t assumed to be A*).
+    - If not choked, set p_e = p_ambient and solve for Mach from Pt/p.
+    - Mass flow is not solved from choking; instead, we use the passed-in m_dot (cycle deck assumption).
+    """
     eta: float
-    pr: float  # Pt_out / Pt_in pressure loss before nozzle (e.g., nozzle duct PR)
+    pr: float
     throat_d: float
     exit_d: float
 
     def process(self, inlet: FluidState, p_ambient: float) -> dict:
-        st = inlet.update()
-        Pt = st.p0 * self.pr
-        Tt = st.T0
+        """
+        Process the flow through the nozzle, returning a dictionary of relevant output properties.
+        """
+        Pt = inlet.Pt * self.pr
+        Tt = inlet.Tt
 
-        gamma = st.model.gamma(Tt)
-        R = st.model.R
+        gamma = inlet.model.gamma(Tt)
+        R = inlet.model.R
+
         At = area_from_diameter(self.throat_d)
         Ae = area_from_diameter(self.exit_d)
         area_ratio = Ae / At if At > 0 else 1.0
 
-        # Determine choking
+        # Choking check based on critical pressure at M=1
         p_star = Pt * critical_pressure_ratio(gamma)
-        choked = p_ambient <= p_star * 1.0001  # allow numeric slack
+        choked = p_ambient <= p_star * 1.0001
 
         if choked:
-            # Determine exit Mach based on area ratio:
+            # If nozzle is CD, attempt supersonic branch for A_e/A_t > 1
             if abs(area_ratio - 1.0) < 1e-6:
                 Me = 1.0
             else:
-                # For CD nozzle, choose supersonic branch if possible (Pt/Pa high),
-                # otherwise subsonic. We'll attempt supersonic, and fall back to subsonic if it fails.
                 try:
                     Me = solve_mach_from_area_ratio(area_ratio, gamma, supersonic=True)
                 except Exception:
                     Me = solve_mach_from_area_ratio(area_ratio, gamma, supersonic=False)
         else:
-            # Not choked: set exit pressure ~ ambient and solve for Me from isentropic Pt/pe
+            # Not choked: match exit static pressure to ambient
             pe = p_ambient
+
             def f(M):
                 return pe - static_pressure_from_Pt(Pt, gamma, M)
 
@@ -67,27 +85,28 @@ class Nozzle(Component):
                         lo, flo = mid, fmid
                 Me = 0.5 * (lo + hi)
 
+        # Exit static properties (isentropic relations)
         Te_is = static_temperature_from_Tt(Tt, gamma, Me)
-        # Nozzle efficiency applied to kinetic energy: V_actual^2 = eta * V_is^2
+        pe = static_pressure_from_Pt(Pt, gamma, Me)
+
         a = math.sqrt(gamma * R * Te_is)
         V_is = Me * a
+
+        # Nozzle efficiency applied as kinetic energy efficiency
         V = math.sqrt(max(self.eta, 0.0)) * V_is
 
-        pe = static_pressure_from_Pt(Pt, gamma, Me)
-        Te = Te_is  # keep Te for reporting (eff applied to V)
-
-        mdot = st.m_dot
+        mdot = inlet.m_dot
         F_gross = mdot * V + (pe - p_ambient) * Ae
 
         return {
             "Pt": Pt,
             "Tt": Tt,
             "Me": Me,
-            "Te": Te,
+            "Te": Te_is,
             "pe": pe,
             "V": V,
             "At": At,
             "Ae": Ae,
             "choked": bool(choked),
-            "F_gross": F_gross,
+            "F_gross": float(F_gross),
         }
