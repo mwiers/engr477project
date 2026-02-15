@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from engine import Ambient, AfterburnDesign, EngineDesign, TurbofanEngine
 from fluid_properties import FluidModel
-
 from tools.state_dump import dump_results_to_excel
+from tools.ts_diagram import TSDiagram
 
 
 def build_f135_engine() -> TurbofanEngine:
-    # From project spec Table 1 (dry):
     d = EngineDesign(
         m_dot=150.0,
         bypass_ratio=0.57,
-        fuel_LHV=43_150_000.0,  # J/kg (43150 kJ/kg)
+        fuel_LHV=43_150_000.0,
         inlet_pr=0.99,
         fan_pr=1.75,
         bypass_duct_pr=0.96,
@@ -22,7 +21,6 @@ def build_f135_engine() -> TurbofanEngine:
         burner_pr=0.94,
         mixer_pr=0.97,
         nozzle_pr=0.98,
-        eta_diffuser=0.99,
         eta_fan=0.89,
         eta_lpc=0.88,
         eta_hpc=0.86,
@@ -32,31 +30,35 @@ def build_f135_engine() -> TurbofanEngine:
         eta_mech=0.99,
         eta_nozzle=0.98,
         Tt4=2000.0,
-        M_inlet=0.5,
-        M_turb_exit=0.5,
         nozzle_throat_d=0.78,
         nozzle_exit_d=0.78,
     )
 
-    air = FluidModel(R=287.05287, composition="air", cp_mode="poly", cp_const=1004.5)
-    products = FluidModel(R=287.05287, composition="products", cp_mode="poly", cp_const=1150.0)
+    air = FluidModel(R=287.05287, composition="air", cp_mode="poly")
+    products = FluidModel(R=287.05287, composition="products", cp_mode="poly")
     return TurbofanEngine(design=d, air_model=air, products_model=products)
+
 
 def main():
     eng = build_f135_engine()
-
-    # Design point: sea-level static
     amb = Ambient(T=288.15, p=101_325.0, M=0.0)
 
     dry = eng.run(amb)
-    print("=== F135 Dry ===")
-    print(f"Net thrust: {dry.scalars['F_net_N']:.0f} N")
-    print(f"Specific thrust: {dry.scalars['ST_Ns_per_kg']:.2f} N·s/kg")
-    print(f"TSFC: {dry.scalars['TSFC_kg_per_Ns']:.3e} kg/(N·s)")
+    print("Dry thrust:", dry.scalars["F_net_N"])
+
+    dump_results_to_excel(
+        dry,
+        "./data/run_dry.xlsx",
+        run_parameters=eng.d,
+        extra_parameters={"ambient": amb},
+        baseline_station="2",
+    )
+
+    ts = TSDiagram()
+    ts.plot(dry, savepath="./data/ts_dry.png")
 
     ab = AfterburnDesign(
         enabled=True,
-        m_dot=165.0,
         Tt7=2450.0,
         ab_pr=0.95,
         eta_ab=0.99,
@@ -65,29 +67,16 @@ def main():
         exit_d=1.15,
     )
     wet = eng.run(amb, afterburn=ab)
-    print("\n=== F135 Afterburning ===")
-    print(f"Net thrust: {wet.scalars['F_net_N']:.0f} N")
-    print(f"Specific thrust: {wet.scalars['ST_Ns_per_kg']:.2f} N·s/kg")
-    print(f"TSFC: {wet.scalars['TSFC_kg_per_Ns']:.3e} kg/(N·s)")
+    print("Wet thrust:", wet.scalars["F_net_N"])
 
-
-    # Save DRY run to Excel with design + ambient parameters
-    dump_results_to_excel(
-        dry,
-        "./data/f135_dry_run.xlsx",
-        run_parameters=eng.d,                       # EngineDesign dataclass
-        extra_parameters={"ambient": amb},          # any extra metadata you want
-    )
-    print("Saved: ./data/f135_dry_run.xlsx")
-
-    # Save AFTERBURN run (still generic; afterburn params are just extra metadata)
     dump_results_to_excel(
         wet,
-        "./data/f135_ab_run.xlsx",
+        "./data/run_ab.xlsx",
         run_parameters=eng.d,
         extra_parameters={"ambient": amb, "afterburn": ab},
+        baseline_station="2",
     )
-    print("Saved: ./data/f135_ab_run.xlsx")
+    ts.plot(wet, title="T–s Diagram (Afterburn)", savepath="./data/ts_ab.png")
 
 
 if __name__ == "__main__":

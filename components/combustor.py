@@ -1,43 +1,72 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
+
 from .component import Component
 from fluid_properties import FluidState, FluidModel
 
+
 @dataclass
 class Combustor(Component):
-    pr: float  # Pt_out / Pt_in
+    """
+    Combustor model with variable cp(T) and enthalpy-based solve.
+
+    Inputs:
+    - Pressure ratio pr (Pt_out/Pt_in)
+    - burner efficiency eta_b
+    - LHV (J/kg fuel)
+    - target exit Tt_out (turbine inlet temperature)
+    - products_model used for post-combustion thermodynamics
+
+    Assumptions:
+    - Adiabatic walls, no shaft work
+    - Single "products" property model after combustion
+    - Fuel-air ratio f solved from energy balance on stagnation enthalpy:
+
+        Let m_air be inlet mass flow (kg/s), m_f = f*m_air.
+        Outlet mass flow: m_out = m_air*(1+f)
+
+        Energy balance:
+          m_air*h_in + m_f*eta_b*LHV = m_out*h_out
+        where:
+          h_in = h_air(Tt_in)
+          h_out = h_prod(Tt_out_target)
+
+        Solve for f:
+          h_in + f*eta_b*LHV = (1+f)*h_out
+          => f*(eta_b*LHV - h_out) = h_out - h_in
+          => f = (h_out - h_in) / (eta_b*LHV - h_out)
+
+    This is a standard variable-cp consistent form (since h(T) already integrates cp(T)).
+    """
+    pr: float
     eta_b: float
-    LHV: float  # J/kg
-    Tt_out: float  # target turbine inlet temperature
+    LHV: float
+    Tt_out: float
     products_model: FluidModel
 
     def process(self, inlet: FluidState) -> tuple[FluidState, float]:
-        st = inlet.update()
-        Pt_out = st.p0 * self.pr
+        Pt_out = inlet.Pt * self.pr
 
-        cp_air = st.model.cp(st.T0)
-        cp_g = self.products_model.cp(self.Tt_out)
+        # Inlet enthalpy (air model), outlet enthalpy (products model at target Tt_out)
+        h_in = inlet.model.h(inlet.Tt)
+        h_out = self.products_model.h(self.Tt_out)
 
-        # Energy balance for fuel-air ratio f (kg_fuel/kg_air)
-        # (1+f)*cp_g*Tt4 - cp_air*Tt3 = eta_b*f*LHV
-        # => f = (cp_g*Tt4 - cp_air*Tt3) / (eta_b*LHV - cp_g*Tt4)
-        num = cp_g * self.Tt_out - cp_air * st.T0
-        den = self.eta_b * self.LHV - cp_g * self.Tt_out
+        den = self.eta_b * self.LHV - h_out
         if den <= 0:
-            raise ValueError("Invalid combustor balance (denominator <= 0). Check Tt_out/LHV.")
-        f = num / den
+            raise ValueError("Combustor energy balance invalid: eta_b*LHV - h_out <= 0. Check Tt_out/LHV.")
+
+        f = (h_out - h_in) / den
         if f < 0:
             f = 0.0
 
-        m_dot_g = st.m_dot * (1.0 + f)
-        out = st.copy_with(
-            m_dot=m_dot_g,
-            T=self.Tt_out,
-            p=Pt_out,
-            M=0.0,
+        m_out = inlet.m_dot * (1.0 + f)
+
+        out = inlet.copy_with(
+            m_dot=m_out,
+            Tt=self.Tt_out,
+            Pt=Pt_out,
             model=self.products_model,
             composition="products",
         )
-        out.T0, out.p0 = self.Tt_out, Pt_out
-        return out.update(), f
+        out.set_static_equal_total()
+        return out.update_thermo(), float(f)

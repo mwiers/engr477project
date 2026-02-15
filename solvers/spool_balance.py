@@ -1,27 +1,32 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-
 from fluid_properties import FluidState
+
 
 @dataclass(frozen=True)
 class SpoolWork:
-    """Shaft power requirements for LP and HP spools (W)."""
     lp: float
     hp: float
 
-def compressor_power(inlet: FluidState, outlet: FluidState) -> float:
-    """Compute compressor power from stagnation enthalpy rise (W)."""
-    st_in = inlet.update()
-    st_out = outlet.update()
-    h_in = st_in.model.h(st_in.T0)
-    h_out = st_out.model.h(st_out.T0)
-    return st_out.m_dot * (h_out - h_in)
 
-def fan_power(inlet: FluidState, core_out: FluidState, bypass_out: FluidState) -> float:
-    """Fan power is based on total mass flow and stagnation enthalpy rise."""
-    st_in = inlet.update()
-    st_out = core_out.update()  # fan exit Tt is same for both
-    h_in = st_in.model.h(st_in.T0)
-    h_out = st_out.model.h(st_out.T0)
-    return (core_out.m_dot + bypass_out.m_dot) * (h_out - h_in)
+def power_required(inlet: FluidState, outlet: FluidState) -> float:
+    """
+    Component shaft power required (compressor/fan) from stagnation enthalpy rise:
+      W = m_dot * (h_t,out - h_t,in)
+
+    With variable cp, h_t is computed from integrated h(Tt).
+    """
+    h_in = inlet.model.h(inlet.Tt)
+    h_out = outlet.model.h(outlet.Tt)
+    return outlet.m_dot * (h_out - h_in)
+
+
+def fan_power(inlet: FluidState, fan_exit: FluidState) -> float:
+    """
+    Fan power uses total inlet mass flow (inlet.m_dot) and fan exit enthalpy.
+    Fan exit state should represent the fan outlet (same for core/bypass pre-split).
+    """
+    h_in = inlet.model.h(inlet.Tt)
+    h_out = fan_exit.model.h(fan_exit.Tt)
+    return inlet.m_dot * (h_out - h_in)
