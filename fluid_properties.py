@@ -47,6 +47,7 @@ class FluidModel:
     mix_w_products: float = 0.0
     air_model: Optional["FluidModel"] = None
     products_model: Optional["FluidModel"] = None
+    mix_s_offset: float = 0.0  # J/(kg*K)
 
 
     def cp(self, T: float) -> float:
@@ -86,6 +87,7 @@ class FluidModel:
         w_products: float,
         T_ref: float = 288.15,
         p_ref: float = 101325.0,
+        s_offset: float = 0.0,
     ) -> "FluidModel":
         """
         Create a 'mixed' FluidModel where properties are mass-weighted blends:
@@ -101,12 +103,13 @@ class FluidModel:
             R=R_mix,
             composition="mixed",
             cp_mode="poly",
-            cp_const=air_model.cp_const,  # unused for poly but harmless
+            cp_const=air_model.cp_const,
             T_ref=T_ref,
             p_ref=p_ref,
             mix_w_products=w,
             air_model=air_model,
             products_model=products_model,
+            mix_s_offset=float(s_offset),
         )
 
 
@@ -145,8 +148,13 @@ class FluidModel:
             integ = _trapz(ys, xs)
             if T < self.T_ref:
                 integ = -integ
+                
+        s_val = float(integ - self.R * math.log(p / self.p_ref))
 
-        return float(integ - self.R * math.log(p / self.p_ref))
+        if self.composition == "mixed":
+            s_val += float(self.mix_s_offset)
+
+        return s_val
 
     # ---------------------------
     # Inversion helpers

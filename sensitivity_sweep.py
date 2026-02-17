@@ -4,7 +4,7 @@ from engine import Ambient, TurbofanEngine
 from main import build_f135_engine
 
 eng = build_f135_engine()
-amb = Ambient(T=288.15, p=101_325.0, M=0.0)
+amb = Ambient(T=288.15, p=101_325.0, M=0.5)
 
 an = SensitivityAnalyzer(
     base_params=eng.d,
@@ -12,11 +12,11 @@ an = SensitivityAnalyzer(
     run_engine=lambda e: e.run(amb),
 )
 
-Tt4_vals = np.linspace(1750, 2200, 10)
-df, _ = an.sweep_1d("Tt4", Tt4_vals, "F_net_N")
+TIT_vals = np.linspace(1750, 2200, 10)
+df, _ = an.sweep_1d("TIT", TIT_vals, "F_net_N")
 
-plot_1d(df, "Tt4", "F_net_N", title="Sensitivity: Net Thrust vs Tt4", savepath="./data/thrust_vs_Tt4.png")
-save_sweep_to_excel(df, "./data/thrust_vs_Tt4.xlsx", metadata={"ambient": "SLS", "metric": "F_net_N"})
+plot_1d(df, "TIT", "F_net_N", title="Sensitivity: Net Thrust vs TIT", savepath="./data/thrust_vs_TIT.png")
+save_sweep_to_excel(df, "./data/thrust_vs_TIT.xlsx", metadata={"ambient": "SLS", "metric": "F_net_N"})
 
 # ----------------------------------------------------------------------------
 

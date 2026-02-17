@@ -146,8 +146,8 @@ class TurbofanEngine:
         # Compute freestream stagnation from static + Mach (cycle uses Pt/Tt).
         # We use gamma(T) at ambient temperature as an approximation for stagnation relation.
         gamma0 = self.air.gamma(ambient.T)
-        Tt0 = stagnation_temperature(ambient.T, ambient.M, gamma0)
-        Pt0 = stagnation_pressure(ambient.p, ambient.M, gamma0)
+        Tt0 = stagnation_temperature(ambient.T, gamma0, ambient.M)
+        Pt0 = stagnation_pressure(ambient.p, gamma0, ambient.M)
     
         s1 = FluidState(
             m_dot=self.d.m_dot,

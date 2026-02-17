@@ -51,7 +51,7 @@ class Nozzle(Component):
 
         # Choking check based on critical pressure at M=1
         p_star = Pt * critical_pressure_ratio(gamma)
-        choked = p_ambient <= p_star * 1.0001
+        choked = p_ambient <= p_star * 1.01    # Add small tolerance to handle numerical issues around choking condition
 
         if choked:
             # If nozzle is CD, attempt supersonic branch for A_e/A_t > 1
@@ -71,19 +71,33 @@ class Nozzle(Component):
 
             lo, hi = 1e-9, 0.999
             flo, fhi = f(lo), f(hi)
-            if flo * fhi > 0:
-                Me = 0.3
-            else:
-                for _ in range(80):
-                    mid = 0.5 * (lo + hi)
-                    fmid = f(mid)
-                    if abs(fmid) < 1e-6:
-                        break
-                    if flo * fmid <= 0:
-                        hi, fhi = mid, fmid
-                    else:
-                        lo, flo = mid, fmid
-                Me = 0.5 * (lo + hi)
+            # Robust bracketing: scan Mach in (0, 1) to find a sign change
+            Ms = [1e-6 + (0.999 - 1e-6) * i / 200 for i in range(201)]
+            fs = [f(M) for M in Ms]
+            bracket = None
+            for i in range(1, len(Ms)):
+                if fs[i - 1] * fs[i] <= 0:
+                    bracket = (Ms[i - 1], Ms[i], fs[i - 1], fs[i])
+                    break
+
+            if bracket is None:
+                raise ValueError(
+                    "Nozzle unchoked solve could not bracket Me in (0,1). "
+                    f"Pt={Pt:.3e}, gamma={gamma:.4f}, p_amb={p_ambient:.3e}"
+                    f", p*={p_star:.3e}, choked={choked}"
+                )
+            lo, hi, flo, fhi = bracket
+
+            for _ in range(80):
+                mid = 0.5 * (lo + hi)
+                fmid = f(mid)
+                if abs(fmid) < 1e-8:
+                    break
+                if flo * fmid <= 0:
+                    hi, fhi = mid, fmid
+                else:
+                    lo, flo = mid, fmid
+            Me = 0.5 * (lo + hi)
 
         # Exit static properties (isentropic relations)
         Te_is = static_temperature_from_Tt(Tt, gamma, Me)
