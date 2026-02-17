@@ -5,7 +5,7 @@ from typing import Literal, Optional
 import math
 
 
-Composition = Literal["air", "products"]
+Composition = Literal["air", "products", "mixed"]
 
 
 def _trapz(y: list[float], x: list[float]) -> float:
@@ -42,25 +42,73 @@ class FluidModel:
     T_ref: float = 288.15
     p_ref: float = 101325.0
 
+    # --- Mixed-model configuration (mass-weighted blending of air/products) ---
+    # mix_w_products is the mass fraction of "products" in the mixed stream (0..1).
+    mix_w_products: float = 0.0
+    air_model: Optional["FluidModel"] = None
+    products_model: Optional["FluidModel"] = None
+
+
     def cp(self, T: float) -> float:
         """Specific heat at constant pressure cp(T) [J/(kg*K)]."""
         if self.cp_mode == "constant":
             return float(self.cp_const)
 
-        # Lightweight polynomial in (T-300) for cycle work (not NASA polynomials).
-        # Valid for "reasonable" gas-turbine temperatures (roughly 200–3000 K).
-        x = T - 300.0
+        # Lightweight polynomial in T for cycle work.
+        # Valid for "reasonable" gas-turbine temperatures.
         if self.composition == "air":
-            a, b, c = 1003.5, 0.100, -1.0e-5
-        else:
-            a, b, c = 1150.0, 0.120, -1.2e-5
-        return float(a + b * x + c * x * x)
+            a, b, c, d = 9.703e2, 6.79e-2, 1.658e-4, -6.786e-8  # Per "Thermodynamics An Engineering Approach" (Çengel) table A-1/2, for air
+        elif self.composition == "products":
+            a, b, c, d = 8.814e2, 5.485e-1, -1.822e-4, 2.205e-8 # Refer to report for justification
+        elif self.composition == "mixed":
+            if self.air_model is None or self.products_model is None:
+                raise ValueError("Mixed FluidModel requires air_model and products_model.")
+            w = float(max(0.0, min(1.0, self.mix_w_products)))
+            cp_air = self.air_model.cp(T)
+            cp_prod = self.products_model.cp(T)
+            return float((1.0 - w) * cp_air + w * cp_prod)
+
+        else: 
+            raise ValueError(f"{self.composition} is not a valid composition.")
+        return float(a + b*T + c*T*T + d*T*T*T)
 
     def gamma(self, T: float) -> float:
         """Ratio of specific heats gamma(T)."""
         cp = self.cp(T)
         cv = cp - self.R
         return float(cp / cv)
+    
+    @staticmethod
+    def make_mixed(
+        *,
+        air_model: "FluidModel",
+        products_model: "FluidModel",
+        w_products: float,
+        T_ref: float = 288.15,
+        p_ref: float = 101325.0,
+    ) -> "FluidModel":
+        """
+        Create a 'mixed' FluidModel where properties are mass-weighted blends:
+          cp_mix(T) = (1-w)*cp_air(T) + w*cp_prod(T)
+          R_mix     = (1-w)*R_air     + w*R_prod
+
+        w_products is the mass fraction of products in the mixed stream.
+        """
+        w = float(max(0.0, min(1.0, w_products)))
+        R_mix = (1.0 - w) * air_model.R + w * products_model.R
+
+        return FluidModel(
+            R=R_mix,
+            composition="mixed",
+            cp_mode="poly",
+            cp_const=air_model.cp_const,  # unused for poly but harmless
+            T_ref=T_ref,
+            p_ref=p_ref,
+            mix_w_products=w,
+            air_model=air_model,
+            products_model=products_model,
+        )
+
 
     # ---------------------------
     # Thermodynamic integrals

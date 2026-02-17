@@ -23,7 +23,9 @@ class Mixer(Component):
     - Output uses a single chosen property model (mixed_model).
     """
     pr: float
-    mixed_model: FluidModel
+    air_model: FluidModel
+    products_model: FluidModel
+
 
     def process(self, core: FluidState, bypass: FluidState) -> FluidState:
         """
@@ -36,8 +38,22 @@ class Mixer(Component):
         # Mass-weighted stagnation enthalpy (variable cp captured via h(T))
         h_mix = (core.m_dot * core.model.h(core.Tt) + bypass.m_dot * bypass.model.h(bypass.Tt)) / m
 
-        # Solve mixed stagnation temperature from mixed model enthalpy
-        Tt_mix = self.mixed_model.T_from_h(h_mix)
+        # Mass fraction of products entering the mixer (simple, robust):
+        #   w_prod = m_core / (m_core + m_bypass)
+        # where core stream is assumed to be "products" and bypass is "air".
+        w_prod = core.m_dot / m
+
+        mixed_model = FluidModel.make_mixed(
+            air_model=self.air_model,
+            products_model=self.products_model,
+            w_products=w_prod,
+            T_ref=self.air_model.T_ref,
+            p_ref=self.air_model.p_ref,
+        )
+
+        # Solve mixed stagnation temperature from the mixed model enthalpy
+        Tt_mix = mixed_model.T_from_h(h_mix)
+
 
         Pt_in = min(core.Pt, bypass.Pt)
         Pt_out = Pt_in * self.pr
@@ -46,8 +62,9 @@ class Mixer(Component):
             m_dot=m,
             Tt=Tt_mix,
             Pt=Pt_out,
-            model=self.mixed_model,
-            composition="products",
+            model=mixed_model,
+            composition="mixed",
         )
+
         out.set_static_equal_total()
         return out.update_thermo()

@@ -91,7 +91,7 @@ class TurbofanEngine:
       8 = after LPT (powers fan + LPC)
       9 = after bypass duct
       10 = after mixer (mixes 8 and 9)
-      11 = after afterburner (if disabled, 11 is omitted; nozzle can take 11)
+      11 = after afterburner (if disabled, 11 is omitted; nozzle takes 10)
       12 = after nozzle (reported as a state with Pt/Tt from nozzle inlet; static exit in scalars)
     """
 
@@ -122,7 +122,12 @@ class TurbofanEngine:
         self.hpt = Turbine(name="hpt", eta=self.d.eta_hpt, mech_eta=self.d.eta_mech)
         self.lpt = Turbine(name="lpt", eta=self.d.eta_lpt, mech_eta=self.d.eta_mech)
 
-        self.mixer = Mixer(name="mixer", pr=self.d.mixer_pr, mixed_model=self.products)
+        self.mixer = Mixer(
+            name="mixer", 
+            pr=self.d.mixer_pr,
+            air_model=self.air,
+            products_model=self.products,
+            )
 
         self.nozzle_dry = Nozzle(
             name="nozzle",
@@ -287,7 +292,7 @@ class TurbofanEngine:
         # Fuel flow and TSFC (using station definitions)
         m_core = self.d.m_dot / (1.0 + self.d.bypass_ratio)
         m_f_main = m_core * f_main
-        m_f_ab = s10.m_dot * f_ab if (afterburn and afterburn.enabled) else 0.0
+        m_f_ab = s10.m_dot * f_ab
         m_f = m_f_main + m_f_ab
 
         res.add_scalar("m_fuel_kgps", m_f)
