@@ -266,26 +266,89 @@ class SensitivityAnalyzer:
 def plot_1d(
     df: pd.DataFrame,
     x_col: str,
-    y_col: str,
+    y_col: str | list[str],
     *,
+    y2_col: str | list[str] | None = None,
     title: str | None = None,
     xlabel: str | None = None,
     ylabel: str | None = None,
+    y2label: str | None = None,
     savepath: str | None = None,
 ):
     """
-    1D line plot. Uses matplotlib defaults (no explicit colors).
+    1D line plot supporting multiple metrics and optional dual y-axes.
+
+    Improvements:
+      - Shared color cycle across both axes (no duplicate colors)
+      - Fully backwards compatible
     """
-    fig, ax = plt.subplots()
-    ax.plot(df[x_col].to_numpy(), df[y_col].to_numpy())
-    ax.set_xlabel(xlabel or x_col)
-    ax.set_ylabel(ylabel or y_col)
-    ax.grid(True)
+
+    # Normalize inputs
+    y_left = [y_col] if isinstance(y_col, str) else list(y_col)
+    y_right = []
+    if y2_col is not None:
+        y_right = [y2_col] if isinstance(y2_col, str) else list(y2_col)
+
+    fig, ax1 = plt.subplots()
+
+    # Get default matplotlib color cycle
+    default_colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+    n_colors = len(default_colors)
+
+    color_index = 0
+
+    # ---- LEFT AXIS ----
+    for m in y_left:
+        color = default_colors[color_index % n_colors]
+        ax1.plot(
+            df[x_col].to_numpy(),
+            df[m].to_numpy(),
+            label=m,
+            color=color,
+        )
+        color_index += 1
+
+    ax1.set_xlabel(xlabel or x_col)
+    ax1.set_ylabel(
+        ylabel or (" / ".join(y_left) if len(y_left) > 1 else y_left[0])
+    )
+    ax1.grid(True)
+
+    # ---- RIGHT AXIS ----
+    ax2 = None
+    if len(y_right) > 0:
+        ax2 = ax1.twinx()
+
+        for m in y_right:
+            color = default_colors[color_index % n_colors]
+            ax2.plot(
+                df[x_col].to_numpy(),
+                df[m].to_numpy(),
+                label=m,
+                linestyle="--",  # visually distinguish axes
+                color=color,
+            )
+            color_index += 1
+
+        ax2.set_ylabel(
+            y2label or (" / ".join(y_right) if len(y_right) > 1 else y_right[0])
+        )
+
     if title:
-        ax.set_title(title)
+        ax1.set_title(title)
+
+    # ---- Combined Legend ----
+    h1, l1 = ax1.get_legend_handles_labels()
+    if ax2 is not None:
+        h2, l2 = ax2.get_legend_handles_labels()
+        ax1.legend(h1 + h2, l1 + l2, loc="best")
+    elif len(l1) > 0:
+        ax1.legend(loc="best")
+
     if savepath:
         fig.savefig(savepath, dpi=200, bbox_inches="tight")
-    return fig, ax
+
+    return fig, ax1
 
 
 def save_sweep_to_excel(
