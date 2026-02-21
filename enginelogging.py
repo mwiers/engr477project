@@ -15,4 +15,11 @@ class ProgressBar:
         filled_bars = int(self.current / self.total * total_bars)
         empty_bars = total_bars - filled_bars
         bar = full * filled_bars + empty * empty_bars
-        print(f"Progress: [{bar}] {self.current}/{self.total}", end="\r")
+        
+        if self.current == self.total:
+            endline = "\n"
+        else: 
+            endline = "\r"
+        print(f"Progress: [{bar}] {self.current}/{self.total}", end=endline)
+
+        

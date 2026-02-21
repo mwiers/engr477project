@@ -68,6 +68,7 @@ class EngineDesign:
 @dataclass
 class AfterburnDesign:
     enabled: bool
+    m_dot: float
     TAB: float
     ab_pr: float
     eta_ab: float
@@ -330,7 +331,10 @@ class TurbofanEngine:
 
         ab = self._select_afterburner(afterburn, self.afterburner)
 
-        m_dot = float(self.d.m_dot)
+        if ab and ab.enabled:
+            m_dot = float(ab.m_dot)
+        else:
+            m_dot = float(self.d.m_dot)
         res, noz = self._run_once(ambient=ambient, m_dot=m_dot, afterburn=ab)
 
         if mdot_mode.lower() != "auto":
