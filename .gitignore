@@ -3,5 +3,3 @@
 *.pyo
 *.pyd
 __pycache__/*
-*.png
-*.xlsx
