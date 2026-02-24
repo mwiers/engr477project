@@ -135,7 +135,15 @@ def build_f135_engine(**kwargs) -> TurbofanEngine:
     _ = print("F135 Engine Successfully Built") if VERBOSE else None
     return engine
 
-def dry_solve(eng: TurbofanEngine, amb: Ambient):
+def tag_name(name, tags):
+    if isinstance(tags, str):
+        tags = [tags]
+    if tags is not None: 
+        for tag in tags:
+            name += "_" + str(tag)
+    return name
+
+def dry_solve(eng: TurbofanEngine, amb: Ambient, tags: list[str] = None):
     outdir = "./data/dry_solve"
     os.makedirs(outdir, exist_ok=True)
     dry = eng.run(
@@ -145,14 +153,21 @@ def dry_solve(eng: TurbofanEngine, amb: Ambient):
     print("Dry net thrust:", dry.scalars["F_net_N"])
     print("Dry specific thrust:", dry.scalars["ST_Ns_per_kg"])
     print("Dry TSFC:", dry.scalars["TSFC_kg_per_Ns"])
+    # print("Dry Mass flow (choked):", dry.scalars["mdot_nozzle_choked_kgps"])
+    print("Exit velocity:", dry.scalars["ue_exit_mps"])
+    print("Fuel ma/mf:", dry.scalars["m_dot_kgps"]/dry.scalars["m_fuel_kgps"])
 
-    # dump_results_to_excel(
-    #     dry,
-    #     os.path.join(outdir, "run_dry.xlsx"),
-    #     run_parameters=eng.d,
-    #     extra_parameters={"ambient": amb},
-    #     baseline_station="2",
-    # )
+    name = "run_dry"
+    name = tag_name(name, tags)
+    name += ".xlsx"
+
+    dump_results_to_excel(
+        dry,
+        os.path.join(outdir, name),
+        run_parameters=eng.d,
+        extra_parameters={"ambient": amb},
+        baseline_station="2",
+    )
 
     # ts = TSDiagram()
     # ts.plot(dry, savepath=os.path.join(outdir, "ts_dry.png"))
@@ -160,7 +175,7 @@ def dry_solve(eng: TurbofanEngine, amb: Ambient):
     _ = print("Dry Solve Complete") if VERBOSE else None
     return dry
 
-def wet_solve(eng: TurbofanEngine, amb: Ambient):
+def wet_solve(eng: TurbofanEngine, amb: Ambient, tags: list[str] = None):
     outdir = "./data/wet_solve"
     os.makedirs(outdir, exist_ok=True)
 
@@ -171,14 +186,22 @@ def wet_solve(eng: TurbofanEngine, amb: Ambient):
     print("Wet net thrust:", wet.scalars["F_net_N"])
     print("Wet specific thrust:", wet.scalars["ST_Ns_per_kg"])
     print("Wet TSFC:", wet.scalars["TSFC_kg_per_Ns"])
+    # print("Dry Mass flow (choked):", dry.scalars["mdot_nozzle_choked_kgps"])
+    print("Exit velocity:", wet.scalars["ue_exit_mps"])
+    print("Fuel ma/mf:", wet.scalars["m_dot_kgps"]/wet.scalars["m_fuel_kgps"])
 
-    # dump_results_to_excel(
-    #     wet,
-    #     os.path.join(outdir, "run_ab.xlsx"),
-    #     run_parameters=eng.d,
-    #     extra_parameters={"ambient": amb, "afterburn": eng.afterburner},
-    #     baseline_station="2",
-    # )
+    name = "run_ab"
+    name = tag_name(name, tags)
+    name += ".xlsx"
+    
+
+    dump_results_to_excel(
+        wet,
+        os.path.join(outdir, name),
+        run_parameters=eng.d,
+        extra_parameters={"ambient": amb, "afterburn": eng.afterburner},
+        baseline_station="2",
+    )
 
     # ts = TSDiagram()
     # ts.plot(wet, title="T–s Diagram (Afterburn)", savepath=os.path.join(outdir, "ts_ab.png"))
@@ -409,7 +432,7 @@ def main():
     # ---------------- 3.2: Dry Parametric Analysis -------------------
     print('\n--------- Parametric Analysis: -----------')
     eng.afterburner.enabled = False
-    amb.M = 0.85  # Restore Mach for parametric sweeps
+    # amb.M = 0.85  # Restore Mach for parametric sweeps
 
     BPR_range = np.linspace(0.0, 1.5, 16)
     TIT_range = np.linspace(1750.0, 2250.0, 11)
@@ -546,13 +569,13 @@ def main():
 
     # 3.2.4: Emmissions -> IMPLEMENT WITH NASA CEA --------------------------
     
+
     # 3.3: Maximum ST Operation Condition --------------------------
     print('\n--------- Optimized Values: -----------')
-    amb = Ambient(T=288.15, p=101_325.0, M=0.0)
     eng_new = build_f135_engine(bypass_ratio=1.5, hpc_pr=15, TIT=2100)
 
-    optimized_dry = dry_solve(eng_new, amb)
-    optimized_wet = wet_solve(eng_new, amb)
+    optimized_dry = dry_solve(eng_new, amb, tags='optimized')
+    optimized_wet = wet_solve(eng_new, amb, tags='optimized')
 
 
     
