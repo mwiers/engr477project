@@ -135,7 +135,15 @@ def build_f135_engine(**kwargs) -> TurbofanEngine:
     _ = print("F135 Engine Successfully Built") if VERBOSE else None
     return engine
 
-def dry_solve(eng: TurbofanEngine, amb: Ambient):
+def tag_name(name, tags):
+    if isinstance(tags, str):
+        tags = [tags]
+    if tags is not None: 
+        for tag in tags:
+            name += "_" + str(tag)
+    return name
+
+def dry_solve(eng: TurbofanEngine, amb: Ambient, tags: list[str] = None):
     outdir = "./data/dry_solve"
     os.makedirs(outdir, exist_ok=True)
     dry = eng.run(
@@ -145,14 +153,20 @@ def dry_solve(eng: TurbofanEngine, amb: Ambient):
     print("Dry net thrust:", dry.scalars["F_net_N"])
     print("Dry specific thrust:", dry.scalars["ST_Ns_per_kg"])
     print("Dry TSFC:", dry.scalars["TSFC_kg_per_Ns"])
+    print("Exit velocity:", dry.scalars["ue_exit_mps"])
+    print("Air m_dot:", dry.scalars["m_dot_kgps"])
 
-    # dump_results_to_excel(
-    #     dry,
-    #     os.path.join(outdir, "run_dry.xlsx"),
-    #     run_parameters=eng.d,
-    #     extra_parameters={"ambient": amb},
-    #     baseline_station="2",
-    # )
+    name = "run_dry"
+    name = tag_name(name, tags)
+    name += ".xlsx"
+
+    dump_results_to_excel(
+        dry,
+        os.path.join(outdir, name),
+        run_parameters=eng.d,
+        extra_parameters={"ambient": amb},
+        baseline_station="2",
+    )
 
     # ts = TSDiagram()
     # ts.plot(dry, savepath=os.path.join(outdir, "ts_dry.png"))
@@ -160,7 +174,7 @@ def dry_solve(eng: TurbofanEngine, amb: Ambient):
     _ = print("Dry Solve Complete") if VERBOSE else None
     return dry
 
-def wet_solve(eng: TurbofanEngine, amb: Ambient):
+def wet_solve(eng: TurbofanEngine, amb: Ambient, tags: list[str] = None):
     outdir = "./data/wet_solve"
     os.makedirs(outdir, exist_ok=True)
 
@@ -171,14 +185,21 @@ def wet_solve(eng: TurbofanEngine, amb: Ambient):
     print("Wet net thrust:", wet.scalars["F_net_N"])
     print("Wet specific thrust:", wet.scalars["ST_Ns_per_kg"])
     print("Wet TSFC:", wet.scalars["TSFC_kg_per_Ns"])
+    print("Exit velocity:", wet.scalars["ue_exit_mps"])
+    print("Air m_dot:", wet.scalars["m_dot_kgps"])
 
-    # dump_results_to_excel(
-    #     wet,
-    #     os.path.join(outdir, "run_ab.xlsx"),
-    #     run_parameters=eng.d,
-    #     extra_parameters={"ambient": amb, "afterburn": eng.afterburner},
-    #     baseline_station="2",
-    # )
+    name = "run_ab"
+    name = tag_name(name, tags)
+    name += ".xlsx"
+    
+
+    dump_results_to_excel(
+        wet,
+        os.path.join(outdir, name),
+        run_parameters=eng.d,
+        extra_parameters={"ambient": amb, "afterburn": eng.afterburner},
+        baseline_station="2",
+    )
 
     # ts = TSDiagram()
     # ts.plot(wet, title="T–s Diagram (Afterburn)", savepath=os.path.join(outdir, "ts_ab.png"))
@@ -272,16 +293,7 @@ def parametric_analysis(
         if param1 is None:
             raise ValueError("parametric_analysis (1D): param1 must be provided when range2 is None.")
 
-        df = None
-        for m in all_metrics:
-            dfi, _ = sa.sweep_1d(param1, range1, m)
-            if df is None:
-                df = dfi
-            else:
-                # merge on the swept parameter column
-                df = df.merge(dfi, on=param1, how="inner")
-
-        assert df is not None
+        df, _ = sa.sweep_1d_multi(param1, range1, all_metrics)
 
         x_min, x_max = float(np.min(range1)), float(np.max(range1))
         tag = f"1D_{_safe_name(param1)}_{x_min:g}_to_{x_max:g}{tag_suffix}"
@@ -329,8 +341,9 @@ def parametric_analysis(
         f"2D_{_safe_name(param1)}_{x_min:g}_to_{x_max:g}__{_safe_name(param2)}_{y_min:g}_to_{y_max:g}{tag_suffix}"
     )
 
+    _, grids, _ = sa.sweep_2d_multi(param1, range1, param2, range2, all_metrics)
     for m in all_metrics:
-        df2, grid, _ = sa.sweep_2d(param1, range1, param2, range2, m)
+        grid = grids[m]
 
         # save_sweep_to_excel(
         #     df2,
@@ -382,13 +395,34 @@ def main():
 
     # parametric_analysis(
     #     eng, amb,
-    #     metric1=["F_net_N"],
+    #     metric1=["F_net_N", "F_gross_N"],
     #     metric2=["thermal_efficiency", "propulsive_efficiency", "overall_efficiency"],
     #     range1=mach_range, param1="ambient.M",
-    #     tags="dry"
+    #     tags=["dry", MDOT_MODE]
     # )
-
+    # parametric_analysis(
+    #     eng, amb,
+    #     metric1=["ST_Ns_per_kg"],
+    #     metric2=["TSFC_kg_per_Ns"],
+    #     range1=mach_range, param1="ambient.M",
+    #     tags=["dry", MDOT_MODE]
+    # )
+    # parametric_analysis(
+    #     eng, amb,
+    #     metric1=["ue_exit_mps"],
+    #     metric2=["jet_power", "fuel_power", "thrust_power"],
+    #     range1=mach_range, param1="ambient.M",
+    #     tags=["dry", MDOT_MODE]
+    # )
+    # parametric_analysis(
+    #     eng, amb,
+    #     metric1=["m_dot_kgps"],
+    #     metric2=["choked"],
+    #     range1=mach_range, param1="ambient.M",
+    #     tags=["dry", MDOT_MODE]
+    # )
     # """
+    
 
     # 3.1.2: Wet solve --------------------------
     # """ 
@@ -397,19 +431,40 @@ def main():
 
     # parametric_analysis(
     #     eng, amb,
-    #     metric1=["F_net_N"],
+    #     metric1=["F_net_N", "F_gross_N"],
     #     metric2=["thermal_efficiency", "propulsive_efficiency", "overall_efficiency"],
     #     range1=mach_range, param1="ambient.M",
-    #     tags="wet"
+    #     tags=["wet", MDOT_MODE]
     # )
-
-
+    # parametric_analysis(
+    #     eng, amb,
+    #     metric1=["ST_Ns_per_kg"],
+    #     metric2=["TSFC_kg_per_Ns"],
+    #     range1=mach_range, param1="ambient.M",
+    #     tags=["wet", MDOT_MODE]
+    # )
+    # parametric_analysis(
+    #     eng, amb,
+    #     metric1=["ue_exit_mps"],
+    #     metric2=["jet_power", "fuel_power", "thrust_power"],
+    #     range1=mach_range, param1="ambient.M",
+    #     tags=["wet", MDOT_MODE]
+    # )
+    # parametric_analysis(
+    #     eng, amb,
+    #     metric1=["m_dot_kgps"],
+    #     metric2=["choked"],
+    #     range1=mach_range, param1="ambient.M",
+    #     tags=["wet", MDOT_MODE]
+    # )
     # """
+
+
 
     # ---------------- 3.2: Dry Parametric Analysis -------------------
     print('\n--------- Parametric Analysis: -----------')
     eng.afterburner.enabled = False
-    amb.M = 0.85  # Restore Mach for parametric sweeps
+    # amb.M = 0.85  # Restore Mach for parametric sweeps
 
     BPR_range = np.linspace(0.0, 1.5, 16)
     TIT_range = np.linspace(1750.0, 2250.0, 11)
@@ -420,139 +475,77 @@ def main():
     parametric_analysis(
         eng, amb,
         metric1="ST_Ns_per_kg",
-        range1=mach_range, param1="ambient.M"
+        range1=mach_range, param1="ambient.M",
+        tags=["dry", MDOT_MODE]
     )
     parametric_analysis(
         eng, amb,
         metric1="TSFC_kg_per_Ns",
-        range1=mach_range, param1="ambient.M"
+        range1=mach_range, param1="ambient.M",
+        tags=["dry", MDOT_MODE],
     )
     parametric_analysis(
         eng, amb,
         metric1="thermal_efficiency",
-        range1=mach_range, param1="ambient.M"
+        range1=mach_range, param1="ambient.M",
+        tags=["dry", MDOT_MODE],
     )
     parametric_analysis(
         eng, amb,
         metric1="propulsive_efficiency",
-        range1=mach_range, param1="ambient.M"
+        range1=mach_range, param1="ambient.M",
+        tags=["dry", MDOT_MODE],
     )
     parametric_analysis(
         eng, amb,
         metric1="overall_efficiency",
-        range1=mach_range, param1="ambient.M"
+        range1=mach_range, param1="ambient.M",
+        tags=["dry", MDOT_MODE],
     )
     # """
 
     """ # <- ADD A COMMENT HERE TO ENABLE THE SWEEPS, SINCE THEY TAKE A WHILE TO RUN
-    # 3.2.1: Specific Thrust
-    parametric_analysis(
-        eng, amb,
-        metric1="ST_Ns_per_kg",
-        range1=BPR_range, param1="bypass_ratio",
-        range2=hpcPR_range, param2="hpc_pr",
-    )
-    parametric_analysis(
-        eng, amb,
-        metric1="ST_Ns_per_kg",
-        range1=BPR_range, param1="bypass_ratio",
-        range2=TIT_range, param2="TIT",
-    )
-    parametric_analysis(
-        eng, amb,
-        metric1="ST_Ns_per_kg",
-        range1=hpcPR_range, param1="hpc_pr",
-        range2=TIT_range, param2="TIT",
-    )
+    # 3.2: 2D sweeps (all metrics at once per axis-pair)
+    metrics_2d = [
+        "ST_Ns_per_kg",
+        "TSFC_kg_per_Ns",
+        "thermal_efficiency",
+        "propulsive_efficiency",
+        "overall_efficiency",
+    ]
 
-    # 3.2.2: TSFC
     parametric_analysis(
         eng, amb,
-        metric1="TSFC_kg_per_Ns",
+        metric1=metrics_2d,
         range1=BPR_range, param1="bypass_ratio",
         range2=hpcPR_range, param2="hpc_pr",
+        tags=["dry", MDOT_MODE],
     )
     parametric_analysis(
         eng, amb,
-        metric1="TSFC_kg_per_Ns",
+        metric1=metrics_2d,
         range1=BPR_range, param1="bypass_ratio",
         range2=TIT_range, param2="TIT",
+        tags=["dry", MDOT_MODE],
     )
     parametric_analysis(
         eng, amb,
-        metric1="TSFC_kg_per_Ns",
+        metric1=metrics_2d,
         range1=hpcPR_range, param1="hpc_pr",
         range2=TIT_range, param2="TIT",
-    )
-
-    # 3.2.3: Efficiency 
-    parametric_analysis(
-        eng, amb,
-        metric1="thermal_efficiency",
-        range1=BPR_range, param1="bypass_ratio",
-        range2=hpcPR_range, param2="hpc_pr",
-    )
-    parametric_analysis(
-        eng, amb,
-        metric1="thermal_efficiency",
-        range1=BPR_range, param1="bypass_ratio",
-        range2=TIT_range, param2="TIT",
-    )
-    parametric_analysis(
-        eng, amb,
-        metric1="thermal_efficiency",
-        range1=hpcPR_range, param1="hpc_pr",
-        range2=TIT_range, param2="TIT",
-    )
-    # ------
-    parametric_analysis(
-        eng, amb,
-        metric1="propulsive_efficiency",
-        range1=BPR_range, param1="bypass_ratio",
-        range2=hpcPR_range, param2="hpc_pr",
-    )
-    parametric_analysis(
-        eng, amb,
-        metric1="propulsive_efficiency",
-        range1=BPR_range, param1="bypass_ratio",
-        range2=TIT_range, param2="TIT",
-    )
-    parametric_analysis(
-        eng, amb,
-        metric1="propulsive_efficiency",
-        range1=hpcPR_range, param1="hpc_pr",
-        range2=TIT_range, param2="TIT",
-    )
-    # ------
-    parametric_analysis(
-        eng, amb,
-        metric1="overall_efficiency",
-        range1=BPR_range, param1="bypass_ratio",
-        range2=hpcPR_range, param2="hpc_pr",
-    )
-    parametric_analysis(
-        eng, amb,
-        metric1="overall_efficiency",
-        range1=BPR_range, param1="bypass_ratio",
-        range2=TIT_range, param2="TIT",
-    )
-    parametric_analysis(
-        eng, amb,
-        metric1="overall_efficiency",
-        range1=hpcPR_range, param1="hpc_pr",
-        range2=TIT_range, param2="TIT",
+        tags=["dry", MDOT_MODE],
     )
     # """
 
     # 3.2.4: Emmissions -> IMPLEMENT WITH NASA CEA --------------------------
     
+
     # 3.3: Maximum ST Operation Condition --------------------------
     print('\n--------- Optimized Values: -----------')
-    amb = Ambient(T=288.15, p=101_325.0, M=0.0)
     eng_new = build_f135_engine(bypass_ratio=1.5, hpc_pr=15, TIT=2100)
 
-    optimized_dry = dry_solve(eng_new, amb)
-    optimized_wet = wet_solve(eng_new, amb)
+    optimized_dry = dry_solve(eng_new, amb, tags='optimized')
+    optimized_wet = wet_solve(eng_new, amb, tags='optimized')
 
 
     

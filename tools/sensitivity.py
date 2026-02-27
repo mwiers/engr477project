@@ -209,6 +209,48 @@ class SensitivityAnalyzer:
         df = pd.DataFrame({param: vals, metric: ys})
         return df, (runs if keep_runs else None)
 
+    def sweep_1d_multi(
+        self,
+        param: str,
+        values: Iterable[float],
+        metrics: Iterable[str],
+        *,
+        keep_runs: bool = False,
+    ) -> tuple[pd.DataFrame, Optional[list[Results]]]:
+        """
+        Sweep one parameter once and extract multiple metrics from each solve.
+
+        Returns a DataFrame with columns [param, *metrics].
+        """
+        vals = list(values)
+        metric_list = list(metrics)
+        if len(metric_list) == 0:
+            raise ValueError("sweep_1d_multi: at least one metric must be provided.")
+
+        out: dict[str, list[float]] = {m: [] for m in metric_list}
+        runs: list[Results] = []
+
+        n = len(vals)
+        progress = ProgressBar(n)
+        for v in vals:
+            p0 = self.base_params
+            a0 = self.base_ambient
+            p, a = self._apply_change(p0, a0, param, v)
+
+            eng = self.engine_factory(p)
+            res = self._run(eng, a)
+            for m in metric_list:
+                out[m].append(get_metric(res, m))
+            if keep_runs:
+                runs.append(res)
+            if VERBOSE:
+                progress.update()
+
+        data: dict[str, list[float]] = {param: vals}
+        data.update(out)
+        df = pd.DataFrame(data)
+        return df, (runs if keep_runs else None)
+
     def sweep_2d(
         self,
         param_x: str,
@@ -257,6 +299,63 @@ class SensitivityAnalyzer:
 
         df = pd.DataFrame.from_records(records)
         return df, grid, (runs_grid if keep_runs else None)
+
+    def sweep_2d_multi(
+        self,
+        param_x: str,
+        values_x: Iterable[float],
+        param_y: str,
+        values_y: Iterable[float],
+        metrics: Iterable[str],
+        *,
+        keep_runs: bool = False,
+    ) -> tuple[pd.DataFrame, dict[str, np.ndarray], Optional[list[list[Results]]]]:
+        """
+        Sweep two parameters once and extract multiple metrics from each solve.
+
+        Returns:
+          - long-form DataFrame with columns [param_x, param_y, *metrics]
+          - dict of metric -> grid with shape (len(values_y), len(values_x))
+          - optional runs grid
+        """
+        xs = list(values_x)
+        ys = list(values_y)
+        metric_list = list(metrics)
+        if len(metric_list) == 0:
+            raise ValueError("sweep_2d_multi: at least one metric must be provided.")
+
+        grids = {m: np.empty((len(ys), len(xs)), dtype=float) for m in metric_list}
+        runs_grid: list[list[Results]] = [[None for _ in xs] for _ in ys]  # type: ignore
+
+        n = len(xs) * len(ys)
+        progress = ProgressBar(n)
+        records = []
+        for j, yv in enumerate(ys):
+            for i, xv in enumerate(xs):
+                p0 = self.base_params
+                a0 = self.base_ambient
+
+                p, a = self._apply_change(p0, a0, param_x, xv)
+                p, a = self._apply_change(p, a, param_y, yv)
+
+                eng = self.engine_factory(p)
+                res = self._run(eng, a)
+
+                row = {param_x: xv, param_y: yv}
+                for m in metric_list:
+                    z = get_metric(res, m)
+                    grids[m][j, i] = z
+                    row[m] = z
+                records.append(row)
+
+                if keep_runs:
+                    runs_grid[j][i] = res
+
+                if VERBOSE:
+                    progress.update()
+
+        df = pd.DataFrame.from_records(records)
+        return df, grids, (runs_grid if keep_runs else None)
 
 
 # ----------------------------
