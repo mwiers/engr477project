@@ -99,6 +99,7 @@ class Nozzle(Component):
                 try:
                     Me = solve_mach_from_area_ratio(area_ratio, gamma, supersonic=True)
                 except Exception:
+                    print(f'[WARNING] f{choked=} but supersonic solve failed')
                     Me = solve_mach_from_area_ratio(area_ratio, gamma, supersonic=False)
         else:
             pe = p_ambient

@@ -154,7 +154,7 @@ class TurbofanEngine:
         gamma0 = self.air.gamma(ambient.T)
         Tt0 = stagnation_temperature(ambient.T, gamma0, ambient.M)
         Pt0 = stagnation_pressure(ambient.p, gamma0, ambient.M)
-
+        
         s1 = (
             FluidState(
                 m_dot=d.m_dot,
@@ -263,7 +263,7 @@ class TurbofanEngine:
         # Net thrust (ram drag)
         a0 = sqrt(gamma0 * self.air.R * ambient.T)
         u0 = ambient.M * a0
-        F_net = noz["F_gross"] - d.m_dot * u0
+        F_net = noz["F_gross"] -  d.m_dot * u0
         res.add_scalar("F_net_N", F_net)
         res.add_scalar("u_freestream_mps", u0)
 
@@ -284,17 +284,17 @@ class TurbofanEngine:
         pe = noz["pe"]
         Ae = noz["Ae"]
 
-        rate_of_E_added = m_total * ue * ue / 2 - m_air * u0 * u0 / 2 + Ae * ue * (pe - ambient.p)
-        E_consumption_rate = m_f * d.fuel_LHV
+        jet_power = m_total * ue * ue / 2 - m_air * u0 * u0 / 2 + Ae * ue * (pe - ambient.p)
+        fuel_power = m_f * d.fuel_LHV
         thrust_power = F_net * u0
         
-        eta_th = rate_of_E_added / E_consumption_rate if E_consumption_rate > 0 else 0.0
-        eta_prop = thrust_power / rate_of_E_added if rate_of_E_added > 0 else 0.0
+        eta_th = jet_power / fuel_power if fuel_power > 0 else 0.0
+        eta_prop = thrust_power / jet_power if jet_power > 0 else 0.0
         res.add_scalar("thermal_efficiency", eta_th)
         res.add_scalar("propulsive_efficiency", eta_prop)
         res.add_scalar("overall_efficiency", eta_th * eta_prop)
-        res.add_scalar("jet_power", rate_of_E_added)
-        res.add_scalar("fuel_power", E_consumption_rate)
+        res.add_scalar("jet_power", jet_power)
+        res.add_scalar("fuel_power", fuel_power)
         res.add_scalar("thrust_power", thrust_power)
 
         # Station 12: report nozzle exit as a state object
@@ -328,7 +328,7 @@ class TurbofanEngine:
         - "fixed": use EngineDesign.m_dot
         - "auto":  if the nozzle is choked, iterate m_dot so inlet m_dot matches mdot_nozzle_choked
         """
-
+        
         ab = self._select_afterburner(afterburn, self.afterburner)
 
         if ab and ab.enabled:
